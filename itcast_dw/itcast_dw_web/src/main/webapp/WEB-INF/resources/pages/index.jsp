@@ -125,11 +125,11 @@
 		          	orderChart(data.chinaMap)
 		        },
 		        error: function(data){
-		        	
 		        }
 		    });
 		}
-      	query();
+      	var timeInterval = setInterval(function(){query()},1000)
+      	//query();
   </script>
 </body>
 </html>

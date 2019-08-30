@@ -49,6 +49,19 @@ public class DashboardServiceImpl implements DashboardService {
 					put("value", ((v instanceof Integer ? (int)v : 0))+"");
 				}}));
 			}
+		} else {
+			userChartDataes.add(new HashMap<String, String>(){{
+				put("name", "PV");
+				put("value", "0");
+			}});
+			userChartDataes.add(new HashMap<String, String>(){{
+				put("name", "UV");
+				put("value", "0");
+			}});
+			userChartDataes.add(new HashMap<String, String>(){{
+				put("name", "总访客数");
+				put("value", "0");
+			}});
 		}
 		return userChartDataes;
 	}
@@ -74,6 +87,23 @@ public class DashboardServiceImpl implements DashboardService {
 					put("value", ((v instanceof Integer ? (int)v : 0))+"");
 				}}));
 			}
+		} else {
+			rateChartDataes.add(new HashMap<String, String>(){{
+				put("name", "浏览");
+				put("value", "0");
+			}});
+			rateChartDataes.add(new HashMap<String, String>(){{
+				put("name", "加购物车");
+				put("value", "0");
+			}});
+			rateChartDataes.add(new HashMap<String, String>(){{
+				put("name", "下单");
+				put("value", "0");
+			}});
+			rateChartDataes.add(new HashMap<String, String>(){{
+				put("name", "付款");
+				put("value", "0");
+			}});
 		}
 		return rateChartDataes;
 	}

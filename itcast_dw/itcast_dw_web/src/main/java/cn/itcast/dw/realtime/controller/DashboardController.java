@@ -15,12 +15,12 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 
 import javax.annotation.Resource;
+
 
 @Controller
 @RequestMapping("/dashboard")
@@ -81,8 +81,10 @@ public class DashboardController {
     		data.add(new ArrayList<HashMap<String,Object>>(){{
     			add(new HashMap<String, Object>(){{
         			AreaBean areaBean = areaMaps.get(k.longValue());
-					put("name", areaBean.getName());
-        			put("value", v.intValue());
+        			if (null!=areaBean) {
+        				put("name", areaBean.getName());
+        				put("value", v.intValue());						
+					}
         		}});
     		}});
     	});
