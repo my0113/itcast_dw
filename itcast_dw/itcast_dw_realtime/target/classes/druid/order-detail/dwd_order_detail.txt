@@ -1,0 +1,63 @@
+1、定义数据源的数据格式描述文件，命名为dws_od_config.json，存放在/export/servers/druid/test
+{
+  "type" : "kafka",
+  "dataSchema" : {
+    "dataSource" : "dws_od",
+    "parser" : {
+      "type" : "string",
+      "parseSpec" : {
+        "format" : "json",
+        "timestampSpec" : {
+          "column" : "createTime",
+          "format" : "yyyy-MM-dd HH:mm:ss"
+        },
+        "dimensionsSpec" : {
+          "dimensions" : [ {
+            "name" : "totalMoney",
+            "type" : "double"
+          }, {
+            "name" : "areaId",
+            "type" : "long"
+          }, {
+            "name" : "orderStatus",
+            "type" : "long"
+          } ]
+        }
+      }
+    },
+    "metricsSpec" : [ {
+      "type" : "count",
+      "name" : "count"
+    }, {
+      "type" : "doubleSum",
+      "name" : "sum",
+      "fieldName" : "销售额",
+      "expression" : null
+    } ],
+    "granularitySpec" : {
+      "type" : "uniform",
+      "segmentGranularity" : "HOUR",
+      "queryGranularity" : "MINUTE",
+      "rollup" : true
+    }
+  },
+  "tuningConfig" : {
+    "type" : "kafka",
+    "maxRowsInMemory" : 1000000,
+    "maxRowsPerSegment" : 5000000,
+    "workerThreads" : 2
+  },
+  "ioConfig" : {
+	"topic" : "dws_od",
+	"consumerProperties" : {
+      "bootstrap.servers" : "bigdata-cdh01:9092,bigdata-cdh02:9092,bigdata-cdh03:9092",
+	  "group.id":"index_kafka_dws_od"
+    },
+	"taskCount":1,
+	"replicas":1,
+	"taskDuration":"PT1H"
+  }
+}
+
+2、提交基于kafka的supervisor
+	curl -XPOST -H 'Content-Type: application/json' -d @dws_od-config.json http://bigdata-cdh01:8090/druid/indexer/v1/supervisor
