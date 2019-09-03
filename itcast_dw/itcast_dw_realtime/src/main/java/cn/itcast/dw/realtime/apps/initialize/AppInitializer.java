@@ -8,10 +8,12 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import cn.itcast.dw.realtime.Configure;
 import cn.itcast.dw.realtime.bean.OrderBean;
 import cn.itcast.dw.realtime.bean.OrderDetailBean;
 import cn.itcast.dw.realtime.bean.OrderGoodsBean;
 import cn.itcast.dw.realtime.utils.JsonUtil;
+import cn.itcast.dw.realtime.utils.KafkaAdmin;
 import cn.itcast.dw.realtime.utils.RedisUtil;
 
 /**
@@ -35,14 +37,21 @@ public class AppInitializer {
 
 	public static void main(String[] args) {
 		AppInitializer appInit = new AppInitializer();
-		 appInit.dimInitializer();
-//		appInit.getOrders().forEach(b -> System.out.println(JsonUtil.obj2Json(b)));
-//		appInit.getOrderDetails().forEach(b -> System.out.println(JsonUtil.obj2Json(b)));
-
+		appInit.dimInitializer();
+		appInit.topicInitializer();
+		
 	}
 
+	/**
+	 * 如果主题不存在则初始化
+	 */
+	public void topicInitializer() {
+		KafkaAdmin.topicIfNoExistCreate(Configure.kafkaZookeeperConnect, Configure.readTopic);
+		KafkaAdmin.topicIfNoExistCreate(Configure.kafkaZookeeperConnect, Configure.writeTopic);
+	}
+	
 	public void dimInitializer() {
-		RedisUtil build = RedisUtil.build("bigdata-cdh01", 6379);
+		RedisUtil build = RedisUtil.build(Configure.redisHost, Configure.redisPort);
 		List<OrderGoodsBean> ogBeans = getOrderGoods();
 		ogBeans.forEach(b -> {
 			build.set("dim_og_" + b.getOrderId(), JsonUtil.obj2Json(b));

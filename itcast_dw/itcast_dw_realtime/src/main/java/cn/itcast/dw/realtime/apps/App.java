@@ -45,6 +45,7 @@ import org.apache.flink.streaming.api.windowing.triggers.ContinuousProcessingTim
 import org.apache.flink.streaming.api.windowing.triggers.CountTrigger;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer011;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer011;
 import org.apache.flink.streaming.connectors.redis.RedisSink;
 import org.apache.flink.streaming.connectors.redis.common.config.FlinkJedisPoolConfig;
 import org.apache.flink.streaming.connectors.redis.common.mapper.RedisCommand;
@@ -60,6 +61,7 @@ import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import cn.itcast.dw.realtime.Configure;
 import cn.itcast.dw.realtime.bean.Bean;
 import cn.itcast.dw.realtime.bean.BeanFactory;
 import cn.itcast.dw.realtime.bean.LogBean;
@@ -79,12 +81,13 @@ public class App {
 
 	static String appName = App.class.getSimpleName();
 	static final ThreadLocal<SimpleDateFormat> FORMAT = ThreadLocal.withInitial(() -> new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS"));
-	static final String INPUT_TOPIC = "test";
-	static final String OUTPUT_TOPIC = "detail";
-	static final String ZK_ADDR = "bigdata-cdh01:2181,bigdata-cdh02:2181,bigdata-cdh03:2181";
-	static final String KAFKA_ADDR = "bigdata-cdh01:9092,bigdata-cdh02:9092,bigdata-cdh03:9092";
-	static final String REDIS_ADDR = "bigdata-cdh01";
-	static final int REDIS_PORT = 6379;
+	static final String INPUT_TOPIC = Configure.readTopic;
+	static final String OUTPUT_TOPIC = Configure.writeTopic;
+	static final String ZK_ADDR = Configure.kafkaZookeeperConnect; 
+	static final String KAFKA_ADDR = Configure.kafkaBootstrapServers; 
+	static final String REDIS_ADDR = Configure.redisHost;
+	static final int REDIS_PORT = Configure.redisPort;
+	static final String HBASE_ROOT_DIR = Configure.hbaseRootDir;
 	static final String HBASE_TABLE = "dwd_order_detail";
 	static final String HBASE_TABLE_FAMILY = "detail";
 	static final RedisSinkMapper redisSinkMapper = new RedisSinkMapper();
@@ -117,6 +120,7 @@ public class App {
 		//读取kafka主题中的订单、订单商品、订单商品评价、订单商品退款数据
 		FlinkKafkaConsumer011<String> kafkaSource = new FlinkKafkaConsumer011<String>(INPUT_TOPIC,
 				new SimpleStringSchema(), props);
+		kafkaSource.setStartFromEarliest();
 		
 		//实例化为AbstractBean
 		DataStream<Bean> inputSS = env.addSource(kafkaSource)
@@ -151,7 +155,7 @@ public class App {
 									if (obj instanceof OrderGoodsBean) {
 										OrderGoodsBean odBean = (OrderGoodsBean)obj;
 										if (odBean.getOrderId() > 0) {
-											//ctx.collect(odBean);
+											ctx.collect(odBean);
 										}
 									}
 								}
@@ -168,6 +172,8 @@ public class App {
 		DataStream<OrderBean> orderDS = inputSS
 			.filter(bean -> bean instanceof OrderBean)
 			.map(bean -> (OrderBean)bean);
+		// 提供Druid的数据源
+		orderDS.map(bean -> JsonUtil.obj2Json(bean)).addSink(new FlinkKafkaProducer011<String>(OUTPUT_TOPIC, new SimpleStringSchema(), props));
 		
 		//订单关联商品
 		DataStream<OrderDetailBean> detailDS = orderDS
@@ -185,8 +191,6 @@ public class App {
 			});
 		// 保存到hbase
 		detailDS.addSink(new HBaseSink(HBASE_TABLE, HBASE_TABLE_FAMILY));
-		// 提供Druid的数据源
-		//detailDS.addSink(new KafkaSink());
 		
 		//获取行为数据
 		DataStream<LogBean> logDS = inputSS
@@ -237,41 +241,25 @@ public class App {
     		convertRatePattern);
 
 		logPS.select(new PatternSelectFunction<LogBean, Tuple2<String, String>>() {
-			private static final long serialVersionUID = 1L;
-			@Override
-			public Tuple2<String, String> select(Map<String, List<LogBean>> pattern) throws Exception {
-				int browseNumber = pattern.get("p1").size();//浏览人数
-	        	int cartNumber = pattern.get("p2").size();//加购物车人数
-	        	int orderNumber = pattern.get("p3").size();//下单人数
-	        	int payNumber = pattern.get("p4").size();//付款人数
-	        	LogBean p1 = pattern.get("p1").get(0);
-	        	LogBean p2 = pattern.get("p2").get(0);
-	        	LogBean p3 = pattern.get("p3").get(0);
-	        	LogBean p4 = pattern.get("p4").get(0);
-	            String res = p1.getGuid()+"["+p1.getIp()+", "+p1.getUrl()+"]\n"+
-		            		 p2.getGuid()+"["+p2.getIp()+", "+p2.getUrl()+"]\n"+
-		            		 p3.getGuid()+"["+p3.getIp()+", "+p3.getUrl()+"]\n"+
-		            		 p4.getGuid()+"["+p4.getIp()+", "+p4.getUrl()+"]";
-	            System.out.println("#### "+res);
-	            return Tuple2.of("quora_convert", new ConvertRate(browseNumber, cartNumber, orderNumber, payNumber).toString());
-			}
-		})
-//		.select((Map<String, List<LogBean>> pattern) -> {
-//	    		int browseNumber = pattern.get("p1").size();//浏览人数
-//	        	int cartNumber = pattern.get("p2").size();//加购物车人数
-//	        	int orderNumber = pattern.get("p3").size();//下单人数
-//	        	int payNumber = pattern.get("p4").size();//付款人数
-//	        	LogBean p1 = pattern.get("p1").get(0);
-//	        	LogBean p2 = pattern.get("p2").get(0);
-//	        	LogBean p3 = pattern.get("p3").get(0);
-//	        	LogBean p4 = pattern.get("p4").get(0);
-//	            String res = p1.getGuid()+"["+p1.getIp()+", "+p1.getUrl()+"]\n"+
-//		            		 p2.getGuid()+"["+p2.getIp()+", "+p2.getUrl()+"]\n"+
-//		            		 p3.getGuid()+"["+p3.getIp()+", "+p3.getUrl()+"]\n"+
-//		            		 p4.getGuid()+"["+p4.getIp()+", "+p4.getUrl()+"]";
-//	            System.out.println("#### "+res);
-//	            return Tuple2.of("quora_convert", new ConvertRate(browseNumber, cartNumber, orderNumber, payNumber).toString());
-//	        })
+				private static final long serialVersionUID = 1L;
+				@Override
+				public Tuple2<String, String> select(Map<String, List<LogBean>> pattern) throws Exception {
+					int browseNumber = pattern.get("p1").size();//浏览人数
+		        	int cartNumber = pattern.get("p2").size();//加购物车人数
+		        	int orderNumber = pattern.get("p3").size();//下单人数
+		        	int payNumber = pattern.get("p4").size();//付款人数
+		        	LogBean p1 = pattern.get("p1").get(0);
+		        	LogBean p2 = pattern.get("p2").get(0);
+		        	LogBean p3 = pattern.get("p3").get(0);
+		        	LogBean p4 = pattern.get("p4").get(0);
+		            String res = p1.getGuid()+"["+p1.getIp()+", "+p1.getUrl()+"]\n"+
+			            		 p2.getGuid()+"["+p2.getIp()+", "+p2.getUrl()+"]\n"+
+			            		 p3.getGuid()+"["+p3.getIp()+", "+p3.getUrl()+"]\n"+
+			            		 p4.getGuid()+"["+p4.getIp()+", "+p4.getUrl()+"]";
+		            System.out.println("#### "+res);
+		            return Tuple2.of("quora_convert", new ConvertRate(browseNumber, cartNumber, orderNumber, payNumber).toString());
+				}
+			})
 			.returns(Types.TUPLE(Types.STRING, Types.STRING))
 	        .addSink(new RedisSink<Tuple2<String, String>>(new FlinkJedisPoolConfig.Builder().setHost(REDIS_ADDR).setPort(REDIS_PORT).build(), redisSinkMapper))
 	        .setParallelism(1);
@@ -300,10 +288,7 @@ public class App {
 		            	Iterator<Visitor> iterator = in.iterator();
 		            	if (iterator.hasNext()) {
 		            		Visitor visitor = iterator.next();
-							//SimpleDateFormat sdf = FORMAT.get();
-							//System.out.println(sdf.format(new Date(context.window().getStart())) + " ~ " + sdf.format(new Date(context.window().getEnd())) + ": " + visitor);
 							String string = visitor.toString();
-							System.out.println("==== "+string);
 							out.collect(Tuple2.of("quota_visitor", visitor.toString()));
 						}
 		            }
@@ -408,14 +393,18 @@ public class App {
 		private Connection connection;
 		@Override
 		public void open(Configuration conf) throws Exception {
-			org.apache.hadoop.conf.Configuration hadoopConf = HBaseConfiguration.create();
-			hadoopConf.set("hbase.zookeeper.quorum", ZK_ADDR);
-			connection = ConnectionFactory.createConnection(hadoopConf);
+			org.apache.hadoop.conf.Configuration hbaseConf = HBaseConfiguration.create();
+			hbaseConf.set("hbase.rootdir", HBASE_ROOT_DIR);
+			hbaseConf.set("hbase.zookeeper.quorum", ZK_ADDR);
+		    hbaseConf.set("hbase.zookeeper.property.clientPort", "2181");
+		    hbaseConf.set("zookeeper.znode.parent", "/hbase");
+			connection = ConnectionFactory.createConnection(hbaseConf);
 		}
 		@Override
 		public void invoke(OrderDetailBean bean) throws Exception {
+			System.out.println(bean);
 			Table table = connection.getTable(TableName.valueOf(tableName));
-			Put record = new Put(Bytes.toBytes(bean.getOrderNo()));
+			Put record = new Put(Bytes.toBytes(bean.getOrderId()));
 			JsonUtil.obj2Map(bean).forEach((k,v)->{
 				record.addColumn(Bytes.toBytes(family), Bytes.toBytes(k), Bytes.toBytes(v.toString()));
 			});

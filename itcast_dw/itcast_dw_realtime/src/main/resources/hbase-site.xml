@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+	<!-- 指定hbase在HDFS上存储的路径 -->
+	<property>
+		<name>hbase.rootdir</name>
+		<value>hdfs://bigdata-cdh01:8020/apps/hbase</value>
+	</property>
+	<!-- 指定hbase是分布式的 -->
+	<property>
+		<name>hbase.cluster.distributed</name>
+		<value>true</value>
+	</property>
+	<!-- 指定zk的地址，多个用“,”分割 -->
+	<property>
+		<name>hbase.zookeeper.quorum</name>
+		<value>bigdata-cdh01:2181,bigdata-cdh02:2181,bigdata-cdh03:2181
+		</value>
+	</property>
+	<property>
+		<name>hbase.thrift.support.proxyuser</name>
+		<value>true</value>
+	</property>
+	<property>
+		<name>hbase.regionserver.thrift.http</name>
+		<value>true</value>
+	</property>
+</configuration>

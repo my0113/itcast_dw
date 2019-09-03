@@ -46,6 +46,7 @@ public class JsonUtil {
 	 * @return
 	 */
 	public static String obj2Json(Object obj) {
+		System.out.println("==== obj 2 json: "+obj);
 		return obj2Json(obj, false);
 	}
 	
@@ -93,6 +94,15 @@ public class JsonUtil {
 	}
 	
 	/**
+	 * map转json
+	 * @param map
+	 * @return
+	 */
+	public static Object map2Obj(Map<?, ?> map, Class<?> caz) {
+		return JSON.parseObject(JSON.toJSONString(map), caz);
+	}
+	
+	/**
 	 * json转对象
 	 * @param jsonStr
 	 * @param caz
@@ -103,7 +113,20 @@ public class JsonUtil {
 			return null;
 		}
 		return JSON.parseObject(jsonStr, caz);
-	} 
+	}
+	
+	/**
+	 * jsonStr转JSONObject
+	 * @param jsonStr
+	 * @param caz
+	 * @return
+	 */
+	public static JSONObject json2Obj(String jsonStr) {
+		if (null == jsonStr || jsonStr.isEmpty()) {
+			return null;
+		}
+		return JSON.parseObject(jsonStr);
+	}
 	
 	/**
 	 * json转list

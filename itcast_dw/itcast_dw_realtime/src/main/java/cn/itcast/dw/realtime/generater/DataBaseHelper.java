@@ -9,33 +9,48 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+
+import cn.itcast.dw.realtime.Configure;
+
 import java.sql.*;
+
 
 public class DataBaseHelper {
 
-	static String URLr = "jdbc:mysql://localhost:3306/wst_shop?useUnicode=true&characterEncoding=utf8";
-	static String URLw = "jdbc:mysql://localhost:3306/wst_shop?useUnicode=true&characterEncoding=utf8";
-	static String USERNAME = "root";
-	static String PASSWORD = "000000";
-	static String driver = "com.mysql.jdbc.Driver";
+	private Connection connection;
+	private PreparedStatement ps;
 
-	private Connection conn;
-	private PreparedStatement pstmt;
-
-	public boolean closeConnection() {
+	
+	/**
+	 * 释放连接资源
+	 * @param connection
+	 * @param ps
+	 * @param rs
+	 */
+	public void close(Connection connection, PreparedStatement ps, ResultSet rs) {
 		try {
-			conn.close();
-			return true;
+			if (null != rs) {
+				rs.close();
+			}
+			if (null != ps) {
+				ps.close();
+			}
+			if (null != connection) {
+				connection.close();
+			}
 		} catch (SQLException e) {
 			e.printStackTrace();
-			return false;
 		}
 	}
 
+	/**
+	 * 
+	 * @return
+	 */
 	public boolean openReadConnection() {
 		try {
-			Class.forName(driver).newInstance();
-			conn = DriverManager.getConnection(URLr, USERNAME, PASSWORD);
+			Class.forName(Configure.mysqlDriver).newInstance();
+			connection = DriverManager.getConnection(Configure.mysqlUrl, Configure.mysqlUsername, Configure.mysqlPassword);
 			return true;
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -45,8 +60,8 @@ public class DataBaseHelper {
 
 	public boolean openWriteConnection() {
 		try {
-			Class.forName(driver).newInstance();
-			conn = DriverManager.getConnection(URLw, USERNAME, PASSWORD);
+			Class.forName(Configure.mysqlDriver).newInstance();
+			connection = DriverManager.getConnection(Configure.mysqlUrl, Configure.mysqlUsername, Configure.mysqlPassword);
 			return true;
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -63,14 +78,14 @@ public class DataBaseHelper {
 			iter = null;
 		try {
 			// 准备执行语句
-			pstmt = conn.prepareStatement(sql);
+			ps = connection.prepareStatement(sql);
 			// 解析参数列表
 			if (iter != null)
 				while (iter.hasNext()) {
 					Object p = iter.next();
-					pstmt.setObject(i++, p);
+					ps.setObject(i++, p);
 				}
-			pstmt.execute();
+			ps.execute();
 			return true;
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -87,15 +102,15 @@ public class DataBaseHelper {
 			iter = null;
 		try {
 			// 准备执行语句
-			pstmt = conn.prepareStatement(sql);
+			ps = connection.prepareStatement(sql);
 			// 解析参数列表
 			if (iter != null)
 				while (iter.hasNext()) {
 					Object p = iter.next();
-					pstmt.setObject(i++, p);
+					ps.setObject(i++, p);
 				}
 			// 执行SQL并获得结果集
-			ResultSet rs = pstmt.executeQuery();
+			ResultSet rs = ps.executeQuery();
 			return rs;
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -110,8 +125,7 @@ public class DataBaseHelper {
 	 * 6、不支持二进制格式的数据
 	 */
 	public boolean saveBeans(Object tosave, String table) {
-
-//        String table = tosave.getClass().getSimpleName();//设定：bean名称即为表名称
+//      String table = tosave.getClass().getSimpleName();//设定：bean名称即为表名称
 		Class<? extends Object> ts = tosave.getClass();
 		Field[] fields = ts.getDeclaredFields();// 获取类的所有的成员变量
 		ArrayList<String> col = new ArrayList<String>();// 列名列表
@@ -154,7 +168,7 @@ public class DataBaseHelper {
 		System.out.println("execute sql is ：" + sql);
 		openWriteConnection();
 		boolean ret = doSql(sql, values);// 执行sql语句
-		closeConnection();
+		close(connection, ps, null);
 		return ret;
 	}
 
@@ -162,7 +176,6 @@ public class DataBaseHelper {
 	 * ！利用Map匹配get/set方法，所以不能有重构的方法（标准情况下也不会有）
 	 */
 	public ArrayList<Object> getBeans(Class<?> bean, Map<String, Object> index) {
-
 		String table = bean.getSimpleName();// 设定：bean名称即为表名称
 
 		Field[] fields = bean.getDeclaredFields();// 获取类的所有的成员变量
@@ -230,8 +243,9 @@ public class DataBaseHelper {
 		} catch (Exception e) {
 			e.printStackTrace();
 			return null;
+		} finally {
+			close(connection, ps, null);			
 		}
-		closeConnection();
 		return retdata;
 
 	}
