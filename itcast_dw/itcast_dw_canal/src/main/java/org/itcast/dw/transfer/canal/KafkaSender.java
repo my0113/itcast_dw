@@ -41,9 +41,13 @@ public class KafkaSender {
      * @param data 数据
      */
 	public static void sendMessage(String topic, String key, String data) {
-		KafkaProducer<String, String> producer = createProducer();
-		producer.send(new ProducerRecord<String, String>(topic, key, data));
-		producer.close();
+		try {
+			KafkaProducer<String, String> producer = createProducer();
+			producer.send(new ProducerRecord<String, String>(topic, key, data));
+			producer.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 
     /**

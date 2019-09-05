@@ -31,13 +31,22 @@ import cn.itcast.utils.RedisUtil;
 public class DashboardServiceImpl implements DashboardService {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
+	RedisUtil client = RedisUtil.build("bigdata-cdh01", 6379);
+	// 游客指标
+	private static final String QUOTA_VISITOR = "quota_visitor";
+	// 转化率指标
+	private static final String QUOTA_CONVERT = "quota_convert";
 	
 	
 	@Override
 	public List<Map<String, String>> dau() {
 		List<Map<String, String>> userChartDataes = new ArrayList<Map<String, String>>();
-		RedisUtil client = RedisUtil.build("bigdata-cdh01", 6379);
-		String visitorJsonStr = client.get("quota_visitor");
+		String visitorJsonStr = null;
+		try {
+			visitorJsonStr = client.get(QUOTA_VISITOR);
+		} catch (Exception e) {
+			logger.error("==== Redis connection field! 访客{}指标数据获取失败 ====", QUOTA_VISITOR);
+		}
 		if (!StringUtils.isEmpty(visitorJsonStr)) {
 			if (visitorJsonStr.contains("uv")) {visitorJsonStr=visitorJsonStr.replace("uv", "UV");}
 			if (visitorJsonStr.contains("pv")) {visitorJsonStr=visitorJsonStr.replace("pv", "PV");}
@@ -69,8 +78,12 @@ public class DashboardServiceImpl implements DashboardService {
 	@Override
 	public List<Map<String, String>> convert() {
 		List<Map<String, String>> rateChartDataes = new ArrayList<Map<String, String>>();
-		RedisUtil client = RedisUtil.build("bigdata-cdh01", 6379);
-		String visitorJsonStr = client.get("quota_convert");
+		String visitorJsonStr = null;
+		try {
+			visitorJsonStr = client.get(QUOTA_CONVERT);
+		} catch (Exception e) {
+			logger.error("==== Redis connection field! 转化率{}指标数据获取失败 ====", QUOTA_CONVERT);
+		}
 		if (!StringUtils.isEmpty(visitorJsonStr)) {
 			// bn = browseNumber
 			// cn = cartNumber
