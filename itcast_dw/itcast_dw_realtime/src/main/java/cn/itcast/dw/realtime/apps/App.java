@@ -120,22 +120,25 @@ public class App {
 		//读取kafka主题中的订单、订单商品、订单商品评价、订单商品退款数据
 		FlinkKafkaConsumer011<String> kafkaSource = new FlinkKafkaConsumer011<String>(INPUT_TOPIC,
 				new SimpleStringSchema(), props);
-		kafkaSource.setStartFromEarliest();
+		// kafkaSource.setStartFromEarliest();
 		
 		//实例化为AbstractBean
 		DataStream<Bean> inputSS = env.addSource(kafkaSource)
+			.filter(record -> BeanFactory.getBean(record)!=null)
 			.map(record -> BeanFactory.getBean(record))
 			.assignTimestampsAndWatermarks(new AssignerWithPeriodicWatermarks<Bean>() {
 				private static final long serialVersionUID = -8134477006009350631L;
 				long currentMaxTimestamp = 0L;
                 long maxOutOfOrderness = 10 * 1000L;//最大允许的乱序时间是10s
                 @Override
-                public long extractTimestamp(Bean element, long previousElementTimestamp) {return currentMaxTimestamp = element.getTs();}
+                public long extractTimestamp(Bean element, long previousElementTimestamp) {
+                	return currentMaxTimestamp = element.getTs();
+                }
                 @Override
                 public Watermark getCurrentWatermark() {return new Watermark(currentMaxTimestamp - maxOutOfOrderness);}
             });
 		
-		//读取Redis中的商品维表
+		//读取Redis中的商品维表，缓存在Flink的DataStream中
 		DataStreamSource<OrderGoodsBean> orderGoodsDS = env.addSource(new SourceFunction<OrderGoodsBean>() {
 				private static final long serialVersionUID = 3089297720642290688L;
 				private volatile boolean isRunning = true;
@@ -147,7 +150,6 @@ public class App {
 						Thread.sleep(10*1000);
 						Set<String> keys = redis.getKeys(ORDER_GOODS_KEY_PATTERN);
 						List<String> orderGoodsJsons = redis.getValues(keys);
-						//System.out.println("==== get: "+orderGoodsJsons);
 						if (null != orderGoodsJsons) {
 							orderGoodsJsons.forEach(v -> {
 								if(JsonUtil.isJSONValid(v)) {
@@ -171,9 +173,16 @@ public class App {
 		//获取订单
 		DataStream<OrderBean> orderDS = inputSS
 			.filter(bean -> bean instanceof OrderBean)
-			.map(bean -> (OrderBean)bean);
+			.map(bean -> (OrderBean)bean)
+			.filter(bean -> bean.getOrderId() > 0);
+		
 		// 提供Druid的数据源
-		orderDS.map(bean -> JsonUtil.obj2Json(bean)).addSink(new FlinkKafkaProducer011<String>(OUTPUT_TOPIC, new SimpleStringSchema(), props));
+		orderDS.map(bean -> {
+				String jsonStr = JsonUtil.obj2Json(bean);
+				System.out.println("==== 订单数据："+jsonStr);
+				return jsonStr;
+			})
+			.addSink(new FlinkKafkaProducer011<String>(OUTPUT_TOPIC, new SimpleStringSchema(), props));
 		
 		//订单关联商品
 		DataStream<OrderDetailBean> detailDS = orderDS
@@ -183,31 +192,42 @@ public class App {
 				OrderDetailBean bean = new OrderDetailBean();
 				@Override
 				public OrderDetailBean map1(OrderBean value) throws Exception {
-					bean.add(value);
+					if (value.getOrderId() > 0) {
+						bean.add(value);						
+					}
 					return bean;
 				}
 				@Override
-				public OrderDetailBean map2(OrderGoodsBean value) throws Exception {bean.add(value);return bean;}
-			});
+				public OrderDetailBean map2(OrderGoodsBean value) throws Exception {
+					if (bean.getOrderId() == value.getOrderId()) {
+						bean.add(value);						
+					}
+					return bean;
+				}
+			})
+			.filter(odBean -> odBean.getOrderId() > 0);
 		// 保存到hbase
 		detailDS.addSink(new HBaseSink(HBASE_TABLE, HBASE_TABLE_FAMILY));
 		
 		//获取行为数据
 		DataStream<LogBean> logDS = inputSS
 			.filter(bean -> bean instanceof LogBean)
-			.map(bean -> (LogBean)bean);
+			.map(bean -> {
+				LogBean log = (LogBean)bean;
+				System.out.println("==== 日志数据："+log);
+				return log;
+			});
 		
 		//转化率指标的cep模式定义：p1浏览、p2加购物车、p3下单、p4付款
 		//转化率指标的cep模式流：监控用户的连续事件,假设App端、PC端最大连续使用时间为3分钟
 		//符合转化率指标模式流的行为
-		
         Pattern<LogBean, LogBean> convertRatePattern = Pattern.<LogBean>
 	        begin("p1")
 	        .where(new IterativeCondition<LogBean>() {
 				private static final long serialVersionUID = -4173228553430455129L;
 				@Override
 	            public boolean filter(LogBean log, Context<LogBean> context) throws Exception {
-	                return log.getUrl().startsWith("http://item");
+	                return log.getUrl().startsWith("http://item")||log.getUrl().startsWith("https://item");
 	            }
 	        })
 	        .next("p2")
@@ -215,7 +235,7 @@ public class App {
 				private static final long serialVersionUID = -5300045631734059157L;
 				@Override
 	            public boolean filter(LogBean log, Context<LogBean> context) throws Exception {
-	                return log.getUrl().startsWith("http://cart");
+	                return log.getUrl().startsWith("http://cart")||log.getUrl().startsWith("https://cart");
 	            }
 	        })
 	        .next("p3")
@@ -223,7 +243,7 @@ public class App {
 				private static final long serialVersionUID = -8278259712570067814L;
 				@Override
 	            public boolean filter(LogBean log, Context<LogBean> context) throws Exception {
-	                return log.getUrl().startsWith("http://order");
+	                return log.getUrl().startsWith("http://order")||log.getUrl().startsWith("https://order");
 	            }
 	        })
 	        .next("p4")
@@ -231,7 +251,7 @@ public class App {
 				private static final long serialVersionUID = -3151436526492966858L;
 				@Override
 	            public boolean filter(LogBean log, Context<LogBean> context) throws Exception {
-	                return log.getUrl().startsWith("http://buy");
+	                return log.getUrl().startsWith("http://buy")||log.getUrl().startsWith("https://buy");
 	            }
 	        })
 	        .within(Time.seconds(3));
@@ -256,8 +276,8 @@ public class App {
 			            		 p2.getGuid()+"["+p2.getIp()+", "+p2.getUrl()+"]\n"+
 			            		 p3.getGuid()+"["+p3.getIp()+", "+p3.getUrl()+"]\n"+
 			            		 p4.getGuid()+"["+p4.getIp()+", "+p4.getUrl()+"]";
-		            System.out.println("#### "+res);
-		            return Tuple2.of("quora_convert", new ConvertRate(browseNumber, cartNumber, orderNumber, payNumber).toString());
+		            System.out.println("==== 转化数据："+res);
+		            return Tuple2.of("quota_convert", new ConvertRate(browseNumber, cartNumber, orderNumber, payNumber).toString());
 				}
 			})
 			.returns(Types.TUPLE(Types.STRING, Types.STRING))
@@ -288,8 +308,9 @@ public class App {
 		            	Iterator<Visitor> iterator = in.iterator();
 		            	if (iterator.hasNext()) {
 		            		Visitor visitor = iterator.next();
-							String string = visitor.toString();
-							out.collect(Tuple2.of("quota_visitor", visitor.toString()));
+							String visitorJson = visitor.toString();
+							System.out.println("==== 访客数据: "+visitorJson);
+							out.collect(Tuple2.of("quota_visitor", visitorJson));
 						}
 		            }
 		    })

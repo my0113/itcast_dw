@@ -2,7 +2,6 @@ package cn.itcast.dw.realtime.utils;
 
 import java.util.Collection;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Properties;
 import java.util.Queue;
 import java.util.concurrent.ExecutionException;
@@ -11,10 +10,8 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 
-import cn.itcast.dw.realtime.apps.initialize.DataService;
-
 /**
- * 
+ * 造数据程序
  * @author mengyao
  *
  */
@@ -98,32 +95,6 @@ public class DWKafkaProducer {
 			e.printStackTrace();
 		} finally {
 			producer.close();
-		}
-	}
-
-	@SuppressWarnings("all")
-	public static void main(String[] args) throws Exception {
-		String topic = "test";
-		Properties props = new Properties() {
-			{
-				setProperty("bootstrap.servers", "bigdata-cdh01:9092");
-				setProperty("zookeeper.connect", "bigdata-cdh01:2181,bigdata-cdh02:2181,bigdata-cdh03:2181");
-				setProperty("group.id", "test");
-				setProperty("enable.auto.commit", "false");
-				setProperty("auto.commit.interval.ms", "60000");
-				setProperty("auto.offset.reset", "earliest");// latest, earliest, none
-				setProperty("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-				setProperty("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-				setProperty("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-			}
-		};
-		DWKafkaProducer create = DWKafkaProducer.create(topic, props);
-		//create.asycnSender(DataService.list());
-		//create.senders(DataService.list());
-		List<String> list = DataService.list();
-		for (String msg : list) {
-			Thread.sleep(500);
-			create.sender(msg);
 		}
 	}
 

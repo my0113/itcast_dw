@@ -9,6 +9,8 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.LinkedList;
 
+import org.apache.flink.table.api.scala.nullOf;
+
 /**
  * MySQL Jdbc Helper
  * 
@@ -64,7 +66,9 @@ public class JdbcHelper {
 	 */
 	public Connection getConnection() {
 		try {
-			connection = DriverManager.getConnection(url, user, password);
+			if (null == connection) {
+				connection = DriverManager.getConnection(url, user, password);				
+			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 			System.exit(1);

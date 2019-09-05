@@ -28,7 +28,6 @@ public class DataGeneratedApp {
 	
 	private static SimpleDateFormat formater = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 	// ==== 订单数据 ====
-	private static DecimalFormat df = new DecimalFormat( "0.00" );
 	private static String[] usernames = {"张骁","邓力夫","蒲卉子","彭雅琪","罗秋蒙","邹诗雨","刘强","徐牧","付超","王彬焱","敖倩莹","潘柯佚","巫慧一","张文韬","冷天","夏圆圆","尹婷","艾米莉","姚璞阳","宋宇"};
 	private static String[] userAddrs = {"北京市朝阳区大屯路3号", "北京市海淀区中关村创业大街4M咖啡","安徽省 芜湖市 芜湖县","吉林省 白山市 抚松县","广西壮族自治区 贺州地区 贺州市","安徽省 马鞍山市 金家庄区","广东省 惠州市 龙门县","新疆维吾尔自治区 省直辖行政单位 石河子市","黑龙江省 齐齐哈尔市 龙江县","上海市 市辖区 静安区","福建省 泉州市 惠安县","江苏省 无锡市 北塘区","江苏省 泰州市 兴化市","四川省 成都市 锦江区","福建省 泉州市 鲤城区","上海市 市辖区 浦东新区"};
 	private static String[] userPhones = {"189****5225","152****5535","155****2375","182****8771","137****9662","182****2232","156****1679","187****9264","186****8800","186****6506","150****5112","185****1531","134****2220","130****2806","138****8179","135****5372","130****2238","186****4005","159****8894","188****6010","185****6931","188****0070","136****8632","155****5533","152****7176","159****1050"};
@@ -79,6 +78,7 @@ public class DataGeneratedApp {
 		DigestUtils.md5Hex("12")
 	};
 	
+	//初始化MySQL驱动
 	static {
 		try {
 			Class.forName(Configure.mysqlDriver);
@@ -91,9 +91,10 @@ public class DataGeneratedApp {
 		if(args.length < 1) {
 			args = new String[] {"500"};
 		}
+		// 生成数据的时间间隔
+		long interval = Long.valueOf(args[0]);
 		JdbcHelper jdbcHelper = new JdbcHelper(Configure.mysqlUrl, Configure.mysqlUsername, Configure.mysqlPassword);
 		Connection connection = jdbcHelper.getConnection();
-		long interval = Long.valueOf(args[0]);
 		long count = 1;
 		while (count < 10000) {
 			try {
@@ -145,7 +146,7 @@ public class DataGeneratedApp {
 	}
 	
 	/**
-	 * 生成log数据
+	 * 生成order数据
 	 * @param connection
 	 */
 	private static void insertOrders(Connection connection, long incr) {
@@ -245,10 +246,18 @@ public class DataGeneratedApp {
 	    double pross = (1 + rm.nextDouble()) * Math.pow(10, strLength);  
 	    // 将获得的获得随机数转化为字符串  
 	    String fixLenthString = String.valueOf(pross);  
-	    // 返回固定的长度的随机数  
-	    return fixLenthString.substring(1, strLength + 1).replace(".", "");  
+	    // 返回固定的长度的随机数
+	    if (strLength + 1 > fixLenthString.length()) {
+	    	return fixLenthString.substring(1, strLength).replace(".", "");			
+		} else {
+			return fixLenthString.substring(1, strLength + 1).replace(".", "");
+		}
 	}
 	
+	/**
+	 * 生成IP
+	 * @return
+	 */
 	private static String randomIp() {
 		// 需要排除监控的ip范围
 		int[][] range = { { 607649792, 608174079 }, // 36.56.0.0-36.63.255.255
@@ -267,8 +276,11 @@ public class DataGeneratedApp {
 		String ip = num2ip(range[index][0] + new Random().nextInt(range[index][1] - range[index][0]));
 		return ip;
 	}
-	/*
+	
+	/**
 	 * 将十进制转换成IP地址
+	 * @param ip
+	 * @return
 	 */
 	public static String num2ip(int ip) {
 		int[] b = new int[4];

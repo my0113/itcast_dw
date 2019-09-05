@@ -92,7 +92,6 @@ public class DashboardController {
     	//封装Echarts地图结果数据
 		areaOrderNum.forEach((k,v) -> {
 			AreaBean areaBean = areaMaps.get(k.longValue());
-			System.out.println("==== "+areaBean);
 			if (null != areaBean) {
 				ArrayList<ChinaMap> arr = new ArrayList<ResultBean.ChinaMap>();
 				arr.add(new ChinaMap() {{

@@ -46,7 +46,6 @@ public class JsonUtil {
 	 * @return
 	 */
 	public static String obj2Json(Object obj) {
-		System.out.println("==== obj 2 json: "+obj);
 		return obj2Json(obj, false);
 	}
 	

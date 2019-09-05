@@ -3,9 +3,14 @@ package cn.itcast.dw.realtime.service.impl;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -17,7 +22,9 @@ import org.springframework.stereotype.Service;
 
 import com.alibaba.fastjson.JSONObject;
 
+import cn.itcast.dw.realtime.beans.WeekBean;
 import cn.itcast.dw.realtime.service.DashboardService;
+import cn.itcast.utils.DateUtil;
 import cn.itcast.utils.DruidHelper;
 import cn.itcast.utils.RedisUtil;
 
@@ -45,7 +52,7 @@ public class DashboardServiceImpl implements DashboardService {
 		try {
 			visitorJsonStr = client.get(QUOTA_VISITOR);
 		} catch (Exception e) {
-			logger.error("==== Redis connection field! 访客{}指标数据获取失败 ====", QUOTA_VISITOR);
+			logger.info("==== Redis connection field! 访客{}指标数据获取失败 ====", QUOTA_VISITOR);
 		}
 		if (!StringUtils.isEmpty(visitorJsonStr)) {
 			if (visitorJsonStr.contains("uv")) {visitorJsonStr=visitorJsonStr.replace("uv", "UV");}
@@ -123,11 +130,35 @@ public class DashboardServiceImpl implements DashboardService {
 
 	@Override
 	public Map<String, Object> weekSale() {
+		// 近6天，含今天，共7天
+		int twNum = 6;
+		// 本周近一周
+		LinkedList<WeekBean> twDay = new LinkedList<WeekBean>();
+		for (int i = twNum; i >= 0; i--) {
+			String day = DateUtil.latelyNday(i);
+			String week = DateUtil.dayForWeek(day);
+			twDay.add(new WeekBean(day, week, 0L, i));
+		}
+		// 上周
+		int lwNum = 7;
+		// 上周的近一周
+		LinkedList<WeekBean> lwDay = new LinkedList<WeekBean>();
+		for (int i = twNum; i >= 0; i--) {
+			String day = DateUtil.latelyNday(7, i);
+			String week = DateUtil.dayForWeek(day);
+			lwDay.add(new WeekBean(day, week, 0L, i));
+		}
+		// 按时间从过去到现在进行排序（本周）
+		twDay.stream().sorted((o1,o2) -> o2.getSort().compareTo(o1.getSort()));
+		// 按时间从过去到现在进行排序（上周）
+		lwDay.stream().sorted((o1,o2) -> o2.getSort().compareTo(o1.getSort()));
+		
+		
 		Map<String, Object> result = new HashMap<String, Object>();
 		// 上周 last week SQL
-		String lwSql = "SELECT SUBSTR(CAST(\"__time\" AS VARCHAR),1,10) AS d,sum(\"totalMoney\") FROM \"dws_od1\" where \"__time\" BETWEEN ((CURRENT_TIMESTAMP - INTERVAL '7' DAY)  - INTERVAL '7' DAY) AND (CURRENT_TIMESTAMP - INTERVAL '7' DAY) GROUP BY SUBSTR(CAST(\"__time\" AS VARCHAR),1,10)";
+		String lwSql = "SELECT SUBSTR(CAST(\"__time\" AS VARCHAR),1,10) AS d,sum(\"totalMoney\") FROM \"dws_od1\" where \"__time\" BETWEEN ((CURRENT_TIMESTAMP - INTERVAL '7' DAY)  - INTERVAL '7' DAY) AND (CURRENT_TIMESTAMP - INTERVAL '7' DAY) GROUP BY SUBSTR(CAST(\"__time\" AS VARCHAR),1,10) ORDER BY SUBSTR(CAST(\"__time\" AS VARCHAR),1,10) ASC";
 		// 本周 this week SQL
-		String twSql = "SELECT SUBSTR(CAST(\"__time\" AS VARCHAR),1,10) AS d,sum(\"totalMoney\") FROM \"dws_od1\" where \"__time\" >= CURRENT_TIMESTAMP - INTERVAL '7' DAY GROUP BY SUBSTR(CAST(\"__time\" AS VARCHAR),1,10)";
+		String twSql = "SELECT SUBSTR(CAST(\"__time\" AS VARCHAR),1,10) AS d,sum(\"totalMoney\") FROM \"dws_od1\" where \"__time\" >= CURRENT_TIMESTAMP - INTERVAL '6' DAY GROUP BY SUBSTR(CAST(\"__time\" AS VARCHAR),1,10) ORDER BY SUBSTR(CAST(\"__time\" AS VARCHAR),1,10) ASC";
 		// 实例化Druid JDBC连接
 		DruidHelper helper = new DruidHelper();
 		// 上周1-7天的时间
@@ -146,14 +177,32 @@ public class DashboardServiceImpl implements DashboardService {
         	connection = helper.getConnection();
             st = connection.createStatement();
             rs = st.executeQuery(lwSql);
-            while (rs.next()) {
-            	lwd.add(rs.getString(1));
-            	lw.add(rs.getLong(2));
+			while (rs.next()) {
+            	String day = rs.getString(1);
+            	long val = rs.getLong(2);
+            	for (int i=0; i<lwDay.size(); i++) {
+            		WeekBean wb = lwDay.get(i);
+            		lwd.add(wb.getWeek());
+					if(day.equals(wb.getDay())) {
+						lw.add(val);
+					} else {
+						lw.add(wb.getValue());
+					}
+				}
             }
             rs = st.executeQuery(twSql);
             while (rs.next()) {
-            	twd.add(rs.getString(1));
-            	tw.add(rs.getLong(2));
+            	String day = rs.getString(1);
+            	long val = rs.getLong(2);
+            	for (int i=0; i<twDay.size(); i++) {
+            		WeekBean wb = twDay.get(i);
+            		twd.add(wb.getWeek());
+					if(day.equals(wb.getDay())) {
+						tw.add(val);
+					} else {
+						tw.add(wb.getValue());
+					}
+				}
             }
             result.put("lw", lw);
             result.put("lwd", lwd);
@@ -365,7 +414,18 @@ public class DashboardServiceImpl implements DashboardService {
 
 	@Override
 	public Map<String, Long> weekOrderFinish() {
-		Map<String, Long> result = new HashMap<String, Long>();
+		// 近6天，含今天，共7天
+		int twNum = 6;
+		// 本周近一周
+		LinkedList<WeekBean> twDay = new LinkedList<WeekBean>();
+		for (int i = twNum; i >= 0; i--) {
+			String day = DateUtil.latelyNday(i);
+			String week = DateUtil.dayForWeek(day);
+			twDay.add(new WeekBean(day, week, 0L, i));
+		}
+		// 按时间从过去到现在进行排序（本周）
+		twDay.stream().sorted((o1,o2) -> o2.getSort().compareTo(o1.getSort()));
+		LinkedHashMap<String, Long> result = new LinkedHashMap<String, Long>();
 		String sql = "SELECT SUBSTR(CAST(\"__time\" AS VARCHAR),1,10) AS d,sum(\"count\") FROM \"dws_od1\" where \"__time\" >= CURRENT_TIMESTAMP - INTERVAL '7' DAY GROUP BY SUBSTR(CAST(\"__time\" AS VARCHAR),1,10)";
 		// 实例化Druid JDBC连接
 		DruidHelper helper = new DruidHelper();
@@ -377,7 +437,16 @@ public class DashboardServiceImpl implements DashboardService {
 			st = connection.createStatement();
 			rs = st.executeQuery(sql);
 			while (rs.next()) {
-				result.put(rs.getString(1), rs.getLong(2));
+				String day = rs.getString(1);
+            	long val = rs.getLong(2);
+            	for (int i=0; i<twDay.size(); i++) {
+            		WeekBean wb = twDay.get(i);
+					if(day.equals(wb.getDay())) {
+						result.put(wb.getWeek(), val);
+					} else {
+						result.put(wb.getWeek(), 0L);
+					}
+				}
 			}
 		} catch (Exception e){
 			e.printStackTrace();
@@ -436,48 +505,48 @@ public class DashboardServiceImpl implements DashboardService {
 	}
 	
 	public static void main(String[] args) {
-		DashboardServiceImpl service = new DashboardServiceImpl();
-		System.out.println(service.amountFormat(1000L));
-		// UV、PV、访客数
-    	List<Map<String, String>> dau = service.dau();
-    	// 转化率
-    	List<Map<String, String>> convert = service.convert();
-    	// 周销售环比分析
-    	Map<String, Object> weekSale = service.weekSale();
-    	// 日订单数
-    	long dayOrderNum = service.dayOrderNum();
-    	// 周订单数
-    	long weekOrderNum = service.weekOrderNum();
-    	// 月订单数
-    	long monthOrderNum = service.monthOrderNum();
-    	// 所有区域订单数
-    	Map<Integer, Long> areaOrderNum = service.areaOrderNum();
-    	// 月总销售额
-    	String monthSale = service.monthSale();
-    	// 日总销售额
-    	String daySale = service.daySale();
-    	// 今日24小时销售额
-    	Map<String, Double> hourSale = service.hourSale();
-    	// Top8区域订单的订单数
-    	Map<Integer, Long> areaOrderState = service.areaOrderState();
-    	// 本周一到本周日每天的订单数
-    	Map<String, Long> weekOrderFinish = service.weekOrderFinish();
-    	// Top4地区销售排行
-    	Map<Integer, Double> top4AreaSale = service.top4AreaSale();
-    	
-    	System.out.println("UV、PV、访客数："+dau);
-    	System.out.println("转化率："+convert);
-    	System.out.println("周销售环比分析："+weekSale);
-    	System.out.println("日订单数："+dayOrderNum);
-    	System.out.println("周订单数："+weekOrderNum);
-    	System.out.println("月订单数："+monthOrderNum);
-    	System.out.println("所有区域订单数："+areaOrderNum);
-    	System.out.println("月总销售额："+monthSale);
-    	System.out.println("日总销售额："+daySale);
-    	System.out.println("今日24小时销售额："+hourSale);
-    	System.out.println("Top8区域订单的订单数："+areaOrderState);
-    	System.out.println("本周一到本周日每天的订单数："+weekOrderFinish);
-    	System.out.println("Top4地区销售排行："+top4AreaSale);
+//		DashboardServiceImpl service = new DashboardServiceImpl();
+//		System.out.println(service.amountFormat(1000L));
+//		// UV、PV、访客数
+//    	List<Map<String, String>> dau = service.dau();
+//    	// 转化率
+//    	List<Map<String, String>> convert = service.convert();
+//    	// 周销售环比分析
+//    	Map<String, Object> weekSale = service.weekSale();
+//    	// 日订单数
+//    	long dayOrderNum = service.dayOrderNum();
+//    	// 周订单数
+//    	long weekOrderNum = service.weekOrderNum();
+//    	// 月订单数
+//    	long monthOrderNum = service.monthOrderNum();
+//    	// 所有区域订单数
+//    	Map<Integer, Long> areaOrderNum = service.areaOrderNum();
+//    	// 月总销售额
+//    	String monthSale = service.monthSale();
+//    	// 日总销售额
+//    	String daySale = service.daySale();
+//    	// 今日24小时销售额
+//    	Map<String, Double> hourSale = service.hourSale();
+//    	// Top8区域订单的订单数
+//    	Map<Integer, Long> areaOrderState = service.areaOrderState();
+//    	// 本周一到本周日每天的订单数
+//    	Map<String, Long> weekOrderFinish = service.weekOrderFinish();
+//    	// Top4地区销售排行
+//    	Map<Integer, Double> top4AreaSale = service.top4AreaSale();
+//    	
+//    	System.out.println("UV、PV、访客数："+dau);
+//    	System.out.println("转化率："+convert);
+//    	System.out.println("周销售环比分析："+weekSale);
+//    	System.out.println("日订单数："+dayOrderNum);
+//    	System.out.println("周订单数："+weekOrderNum);
+//    	System.out.println("月订单数："+monthOrderNum);
+//    	System.out.println("所有区域订单数："+areaOrderNum);
+//    	System.out.println("月总销售额："+monthSale);
+//    	System.out.println("日总销售额："+daySale);
+//    	System.out.println("今日24小时销售额："+hourSale);
+//    	System.out.println("Top8区域订单的订单数："+areaOrderState);
+//    	System.out.println("本周一到本周日每天的订单数："+weekOrderFinish);
+//    	System.out.println("Top4地区销售排行："+top4AreaSale);
     	
 	}
 

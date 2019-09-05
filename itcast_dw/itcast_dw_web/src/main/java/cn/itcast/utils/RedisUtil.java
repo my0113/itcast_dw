@@ -41,6 +41,8 @@ public class RedisUtil implements Serializable {
 		JedisPoolConfig config = new JedisPoolConfig();
 		config.setMaxTotal(1024);
 		config.setMaxIdle(10);
+		config.setMinIdle(10);
+		config.setMaxWaitMillis(1000);
 		config.setMaxWaitMillis(1000);
 		config.setTestOnBorrow(true);
 		config.setTestOnReturn(true);
@@ -49,7 +51,7 @@ public class RedisUtil implements Serializable {
 	}
 	
 	private Jedis getClient() {
-		if (client == null) {
+		if (client == null || !client.isConnected()) {
 			this.client = jedisPool.getResource();			
 		}
 		return client;

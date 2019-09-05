@@ -1,7 +1,6 @@
 package cn.itcast.dw.realtime.apps.initialize;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -12,6 +11,7 @@ import cn.itcast.dw.realtime.Configure;
 import cn.itcast.dw.realtime.bean.OrderBean;
 import cn.itcast.dw.realtime.bean.OrderDetailBean;
 import cn.itcast.dw.realtime.bean.OrderGoodsBean;
+import cn.itcast.dw.realtime.utils.JdbcHelper;
 import cn.itcast.dw.realtime.utils.JsonUtil;
 import cn.itcast.dw.realtime.utils.KafkaAdmin;
 import cn.itcast.dw.realtime.utils.RedisUtil;
@@ -24,19 +24,16 @@ import cn.itcast.dw.realtime.utils.RedisUtil;
  */
 public class AppInitializer {
 
-	private String url = "jdbc:mysql://localhost:3306/wst_shop?user=root&password=123456&useUnicode=true&characterEncoding=utf8&autoReconnect=true&failOverReadOnly=false&useSSL=false";
-	private Connection connection;
+	private JdbcHelper jdbcHelper;
 
-	static {
-		try {
-			Class.forName("com.mysql.jdbc.Driver");
-		} catch (ClassNotFoundException e) {
-			e.printStackTrace();
-		}
+	
+	public AppInitializer(JdbcHelper jdbcHelper) {
+		this.jdbcHelper = jdbcHelper;
 	}
-
+	
 	public static void main(String[] args) {
-		AppInitializer appInit = new AppInitializer();
+		JdbcHelper jdbcHelper = new JdbcHelper(Configure.mysqlUrl, Configure.mysqlUsername, Configure.mysqlPassword);
+		AppInitializer appInit = new AppInitializer(jdbcHelper);
 		appInit.dimInitializer();
 		appInit.topicInitializer();
 		
@@ -50,6 +47,9 @@ public class AppInitializer {
 		KafkaAdmin.topicIfNoExistCreate(Configure.kafkaZookeeperConnect, Configure.writeTopic);
 	}
 	
+	/**
+	 * 初始化dim
+	 */
 	public void dimInitializer() {
 		RedisUtil build = RedisUtil.build(Configure.redisHost, Configure.redisPort);
 		List<OrderGoodsBean> ogBeans = getOrderGoods();
@@ -62,10 +62,12 @@ public class AppInitializer {
 	private List<OrderDetailBean> getOrderDetails() {
 		String sql = "SELECT o.orderId,o.orderNo,o.shopId,o.userId,o.orderStatus,o.goodsMoney,o.deliverType,o.deliverMoney,o.totalMoney,o.realTotalMoney,o.payType,o.payFrom,o.isPay,o.areaId,o.areaIdPath,o.userName,o.userAddress,o.userPhone,o.orderScore,o.isInvoice,o.invoiceClient,o.orderRemarks,o.orderSrc,o.needPay,o.payRand,o.orderType,o.isRefund,o.isAppraise,o.cancelReason,o.rejectReason,o.rejectOtherReason,o.isClosed,o.goodsSearchKeys,o.orderunique,o.receiveTime,o.deliveryTime,o.tradeNo,o.dataFlag,o.createTime,o.settlementId,o.commissionFee,o.scoreMoney,o.useScore,o.orderCode,o.extraJson,o.orderCodeTargetID,o.noticeDeliver,o.invoiceJson,o.lockCashMoney,o.payTime,o.isBatch,o.totalPayFee,og.id,og.goodsId,og.goodsNum,og.goodsPrice,og.goodsSpecId,og.goodsSpecNames,og.goodsName,og.goodsImg,og.goodsType,og.commissionRate,og.goodsCode,og.promotionJson,a.areaName FROM wst_orders o LEFT JOIN wst_order_goods og ON og.orderId=o.orderId LEFT JOIN wst_areas a ON a.areaId=o.areaId";
 		List<OrderDetailBean> beans = new ArrayList<OrderDetailBean>();
+		Connection connection = null;
 		PreparedStatement ps = null;
 		ResultSet rs = null;
 		try {
-			ps = getConnection().prepareStatement(sql);
+			connection = jdbcHelper.getConnection();
+			ps = connection.prepareStatement(sql);
 			rs = ps.executeQuery();
 			OrderDetailBean bean = null;
 			while (rs.next()) {
@@ -87,7 +89,7 @@ public class AppInitializer {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		} finally {
-			closeAll(connection, ps, rs);
+			jdbcHelper.close(rs, ps, connection);
 		}
 		return beans;
 	}
@@ -95,10 +97,12 @@ public class AppInitializer {
 	private List<OrderGoodsBean> getOrderGoods() {
 		String sql = "SELECT * FROM wst_order_goods";
 		List<OrderGoodsBean> beans = new ArrayList<OrderGoodsBean>();
+		Connection connection = null;
 		PreparedStatement ps = null;
 		ResultSet rs = null;
 		try {
-			ps = getConnection().prepareStatement(sql);
+			connection = jdbcHelper.getConnection();
+			ps = connection.prepareStatement(sql);
 			rs = ps.executeQuery();
 			OrderGoodsBean ogBean = null;
 			while (rs.next()) {
@@ -110,7 +114,7 @@ public class AppInitializer {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		} finally {
-			closeAll(connection, ps, rs);
+			jdbcHelper.close(rs, ps, connection);
 		}
 		return beans;
 	}
@@ -118,10 +122,12 @@ public class AppInitializer {
 	private List<OrderBean> getOrders() {
 		String sql = "SELECT * FROM wst_orders";
 		List<OrderBean> beans = new ArrayList<OrderBean>();
+		Connection connection = null;
 		PreparedStatement ps = null;
 		ResultSet rs = null;
 		try {
-			ps = getConnection().prepareStatement(sql);
+			connection = jdbcHelper.getConnection();
+			ps = connection.prepareStatement(sql);
 			rs = ps.executeQuery();
 			OrderBean orderBean = null;
 			while (rs.next()) {
@@ -141,36 +147,9 @@ public class AppInitializer {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		} finally {
-			closeAll(connection, ps, rs);
+			jdbcHelper.close(rs, ps, connection);
 		}
 		return beans;
-	}
-
-	public Connection getConnection() {
-		try {
-			if (null == connection || connection.isClosed()) {
-				connection = DriverManager.getConnection(url);
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return connection;
-	}
-
-	public void closeAll(Connection connection, PreparedStatement ps, ResultSet rs) {
-		try {
-			if (null != rs) {
-				rs.close();
-			}
-			if (null != ps) {
-				ps.close();
-			}
-			if (null != connection) {
-				connection.close();
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
 	}
 
 }

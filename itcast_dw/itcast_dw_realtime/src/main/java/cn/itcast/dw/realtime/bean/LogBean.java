@@ -8,7 +8,7 @@ package cn.itcast.dw.realtime.bean;
 public class LogBean extends Bean {
 	
 	private static final long serialVersionUID = -4432274786218106262L;
-	private long id;              // 唯一标识
+	private String id;              // 唯一标识
 	private String url;             // 当前链接地址
 	private String referer;         // 前一页链接地址
 	private String keyword;         // 搜索引擎关键字
@@ -59,7 +59,7 @@ public class LogBean extends Bean {
 		this.referer = referer;
 		this.orderCode = orderCode;
 	}
-	public LogBean(long id, String url, String referer, String keyword, String type, String guid, String pageId,
+	public LogBean(String id, String url, String referer, String keyword, String type, String guid, String pageId,
 			String moduleId, String linkId, String attachedInfo, String sessionId, String trackerU, String trackerType,
 			String ip, String trackerSrc, String cookie, String orderCode, String trackTime, String endUserId,
 			String firstLink, String sessionViewNo, String productId, String curMerchantId, String provinceId,
@@ -104,10 +104,10 @@ public class LogBean extends Bean {
 		this.linkPosition = linkPosition;
 		this.buttonPosition = buttonPosition;
 	}
-	public long getId() {             
+	public String getId() {             
 		return id;
 	}
-	public void setId(long id) {
+	public void setId(String id) {
 		this.id = id;
 	}
 	public String getUrl() {
@@ -320,48 +320,7 @@ public class LogBean extends Bean {
 	public void setButtonPosition(String buttonPosition) {
 		this.buttonPosition = buttonPosition;
 	}
-	@Override
-	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + ((attachedInfo == null) ? 0 : attachedInfo.hashCode());
-		result = prime * result + ((buttonPosition == null) ? 0 : buttonPosition.hashCode());
-		result = prime * result + ((cityId == null) ? 0 : cityId.hashCode());
-		result = prime * result + ((cookie == null) ? 0 : cookie.hashCode());
-		result = prime * result + ((curMerchantId == null) ? 0 : curMerchantId.hashCode());
-		result = prime * result + ((currentPage == null) ? 0 : currentPage.hashCode());
-		result = prime * result + ((edmActivity == null) ? 0 : edmActivity.hashCode());
-		result = prime * result + ((edmEmail == null) ? 0 : edmEmail.hashCode());
-		result = prime * result + ((edmJobId == null) ? 0 : edmJobId.hashCode());
-		result = prime * result + ((endUserId == null) ? 0 : endUserId.hashCode());
-		result = prime * result + ((fee == null) ? 0 : fee.hashCode());
-		result = prime * result + ((firstLink == null) ? 0 : firstLink.hashCode());
-		result = prime * result + ((guid == null) ? 0 : guid.hashCode());
-		result = prime * result + (int) (id ^ (id >>> 32));
-		result = prime * result + ((ieVersion == null) ? 0 : ieVersion.hashCode());
-		result = prime * result + ((internalKeyword == null) ? 0 : internalKeyword.hashCode());
-		result = prime * result + ((ip == null) ? 0 : ip.hashCode());
-		result = prime * result + ((keyword == null) ? 0 : keyword.hashCode());
-		result = prime * result + ((linkId == null) ? 0 : linkId.hashCode());
-		result = prime * result + ((linkPosition == null) ? 0 : linkPosition.hashCode());
-		result = prime * result + ((moduleId == null) ? 0 : moduleId.hashCode());
-		result = prime * result + ((orderCode == null) ? 0 : orderCode.hashCode());
-		result = prime * result + ((pageId == null) ? 0 : pageId.hashCode());
-		result = prime * result + ((platform == null) ? 0 : platform.hashCode());
-		result = prime * result + ((productId == null) ? 0 : productId.hashCode());
-		result = prime * result + ((provinceId == null) ? 0 : provinceId.hashCode());
-		result = prime * result + ((referer == null) ? 0 : referer.hashCode());
-		result = prime * result + ((resultSum == null) ? 0 : resultSum.hashCode());
-		result = prime * result + ((sessionId == null) ? 0 : sessionId.hashCode());
-		result = prime * result + ((sessionViewNo == null) ? 0 : sessionViewNo.hashCode());
-		result = prime * result + ((trackTime == null) ? 0 : trackTime.hashCode());
-		result = prime * result + ((trackerSrc == null) ? 0 : trackerSrc.hashCode());
-		result = prime * result + ((trackerType == null) ? 0 : trackerType.hashCode());
-		result = prime * result + ((trackerU == null) ? 0 : trackerU.hashCode());
-		result = prime * result + ((type == null) ? 0 : type.hashCode());
-		result = prime * result + ((url == null) ? 0 : url.hashCode());
-		return result;
-	}
+	
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj)

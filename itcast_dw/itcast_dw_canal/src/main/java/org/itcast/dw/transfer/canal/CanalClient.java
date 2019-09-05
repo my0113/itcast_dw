@@ -14,6 +14,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Canal解析binlog日志工具类
  * Created by: mengyao
@@ -21,6 +24,9 @@ import java.util.UUID;
  */
 public class CanalClient {
 
+	private static Logger logger = LoggerFactory.getLogger(CanalClient.class);
+	
+	
     static class ColumnValuePair {
         private String columnName;
         private String columnValue;
@@ -67,6 +73,7 @@ public class CanalClient {
      * @return Canal连接器
      */
     public static CanalConnector getConnector(String host, int port, String instance, String username, String password) {
+    	logger.info("==== 初始化Canal客户端实例:{}，连接到Canal服务端地址:{}:{}，登录MySQL的用户信息：{}和{}, ====", instance, host, port, username, password);
         return CanalConnectors.newSingleConnector(new InetSocketAddress(host, port), instance, username, password);
     }
 
@@ -161,14 +168,15 @@ public class CanalClient {
         jsonObject.put("timestamp", timestamp);
         // 拼接所有binlog解析的字段
         String data = JSON.toJSONString(jsonObject);
-        System.out.println(data);
         // 解析后的数据发送到kafka
-        //判断解析出的表名事实数据发送order_topic,订单相关维度数据发送到order_relate_topic
-        if (tableName.equalsIgnoreCase("wst_orders")
-        || tableName.equalsIgnoreCase("wst_order_goods")
-        || tableName.equalsIgnoreCase("wst_logs")
+        // itcast_orders、itcast_order_goods、itcast_logs
+        if (tableName.equalsIgnoreCase("itcast_orders")
+        || tableName.equalsIgnoreCase("itcast_order_goods")
+        || tableName.equalsIgnoreCase("itcast_logs")
         ) {
-            KafkaSender.sendMessage(Configure.kafkaOrderTopic, key, data);
+        	String kafkaOrderTopic = Configure.readTopic.intern();
+			KafkaSender.sendMessage(kafkaOrderTopic, key, data);
+            logger.info("==== 生产到kafka主题{}中的数据:{} ====", kafkaOrderTopic, data);
         }
     }
 

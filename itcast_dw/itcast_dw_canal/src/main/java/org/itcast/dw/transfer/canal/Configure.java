@@ -26,10 +26,8 @@ public class Configure {
     public static String mysqlPassword = resourceBundle.getString("mysql.password");
     public static String kafkaBootstrapServers = resourceBundle.getString("kafka.bootstrap.servers");
     public static String kafkaZookeeperConnect = resourceBundle.getString("kafka.zookeeper.connect");
-    public static String kafkaOrderTopic = resourceBundle.getString("kafka.order.topic");
     public static String kafkaSerializer = resourceBundle.getString("kafka.serializer");
     public static String kafkaDeSerializer = resourceBundle.getString("kafka.deserializer");
-    public static String kafkaOrderRelateTopic = resourceBundle.getString("kafka.order.relate.topic");
     public static String redisHost = resourceBundle.getString("redis.host");
     public static int redisPort = Integer.parseInt(resourceBundle.getString("redis.port"));
     public static String hbaseRootDir = resourceBundle.getString("hbase.rootdir");
@@ -47,8 +45,6 @@ public class Configure {
         System.out.println(mysqlPassword);
         System.out.println(kafkaBootstrapServers);
         System.out.println(kafkaZookeeperConnect);
-        System.out.println(kafkaOrderTopic);
-        System.out.println(kafkaOrderRelateTopic);
     }
     
 }
