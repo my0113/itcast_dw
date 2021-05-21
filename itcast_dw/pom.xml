@@ -51,7 +51,7 @@
 		<cdh.version>cdh5.14.0</cdh.version>
 		<hadoop.version>2.6.0</hadoop.version>
 		<hbase.version>1.2.0</hbase.version>
-		<flink.version>1.8.0</flink.version>
+		<flink.version>1.9.2</flink.version>
 		<kafka.version>0.11.0.2</kafka.version>
 		<canal.version>1.0.19</canal.version>
 		<!-- j2ee -->
